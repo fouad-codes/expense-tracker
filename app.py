@@ -2,69 +2,93 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 
-st.set_page_config(page_title="Smart Expense Tracker", layout="centered")
+st.set_page_config(page_title="Expense Tracker", layout="centered")
 
-st.title("💸 Smart Student Expense Tracker")
-st.markdown("Track smarter. Spend better. Stay broke… later 😄")
+st.title("Student Expense Tracker")
+st.write("Track your spending and manage your monthly budget.")
 
-# Budget
-budget = st.number_input("💰 Enter your monthly budget", min_value=0)
+# Budget input
+budget = st.number_input("Enter your monthly budget", min_value=0)
 
-# Input section
-st.subheader("➕ Add Expense")
+# Expense input
+st.subheader("Add Expense")
+
 amount = st.number_input("Amount", min_value=0)
-category = st.selectbox("Category", ["Food", "Transport", "Entertainment", "Academics"])
-add = st.button("Add Expense")
 
-# Session state
-if "data" not in st.session_state:
-    st.session_state.data = []
+category = st.selectbox(
+    "Category",
+    [
+        "Food",
+        "Transport",
+        "Entertainment",
+        "Academics",
+        "Shopping",
+        "Health",
+        "Subscriptions",
+        "Other"
+    ]
+)
 
-if add and amount > 0:
-    st.session_state.data.append({"Amount": amount, "Category": category})
+add_expense = st.button("Add Expense")
 
-df = pd.DataFrame(st.session_state.data)
+# Initialize session data
+if "expenses" not in st.session_state:
+    st.session_state.expenses = []
 
-# Show data
-st.subheader("📋 Expense History")
-st.write(df)
+# Add new expense
+if add_expense and amount > 0:
+    st.session_state.expenses.append({
+        "Amount": amount,
+        "Category": category
+    })
 
-# Stats
+# Convert to DataFrame
+df = pd.DataFrame(st.session_state.expenses)
+
+# Expense history
+st.subheader("Expense History")
+
 if not df.empty:
-    total = df["Amount"].sum()
-    st.metric("💸 Total Spent", total)
 
-    # Remaining
+    for index, row in df.iterrows():
+        col1, col2, col3 = st.columns([3, 2, 1])
+
+        col1.write(f"₹{row['Amount']}")
+        col2.write(row["Category"])
+
+        if col3.button("Remove", key=index):
+            st.session_state.expenses.pop(index)
+            st.rerun()
+
+    # Summary metrics
+    total_spent = df["Amount"].sum()
+    st.write(f"Total spent: ₹{total_spent}")
+
     if budget > 0:
-        remaining = budget - total
-        st.metric("💼 Remaining Budget", remaining)
+        remaining = budget - total_spent
+        st.write(f"Remaining budget: ₹{remaining}")
 
-        # Days until broke
-        daily_avg = total / max(1, len(df))
-        if daily_avg > 0:
-            days_left = remaining / daily_avg
-            st.warning(f"⚠️ Days Until Broke: {int(days_left)} days")
+        average_spending = total_spent / max(1, len(df))
 
-    # Pie chart
-    st.subheader("📊 Spending Breakdown")
-    category_sum = df.groupby("Category")["Amount"].sum()
+        if average_spending > 0:
+            days_left = remaining / average_spending
+            st.write(f"Estimated days until budget runs out: {int(days_left)}")
+
+    # Spending chart
+    st.subheader("Spending Breakdown")
+
+    category_totals = df.groupby("Category")["Amount"].sum()
 
     fig, ax = plt.subplots()
-    ax.pie(category_sum, labels=category_sum.index, autopct='%1.1f%%')
+    ax.pie(category_totals, labels=category_totals.index, autopct="%1.1f%%")
+
     st.pyplot(fig)
 
-    # Smart insights (AI-like)
-    st.subheader("🧠 Smart Insights")
+    # Basic insight
+    st.subheader("Insights")
 
-    highest = category_sum.idxmax()
-    st.info(f"📌 You are spending the most on **{highest}**")
-
-    if highest == "Food":
-        st.warning("🍔 Try reducing canteen/food expenses")
-    elif highest == "Entertainment":
-        st.warning("🎮 Cut down on entertainment spending")
-    elif highest == "Transport":
-        st.warning("🛵 Consider cheaper transport options")
+    highest_category = category_totals.idxmax()
+    st.write(f"Highest spending category: {highest_category}")
 
 else:
-    st.info("Start adding expenses to see insights 👆")
+    st.write("No expenses recorded yet.")
